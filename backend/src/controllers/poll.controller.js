@@ -1,5 +1,6 @@
 import Poll from "../models/Poll.js";
-import Vote from "../models/Vote.js";   
+import Vote from "../models/Vote.js";
+import generateVoterHash from "../utils/hashVoter.js";
 
 export const createPoll = async (req, res) => {
   try {
@@ -37,20 +38,47 @@ export const createPoll = async (req, res) => {
 
 export const getAllPoll = async (req, res) => {
   try {
-    const polls = await Poll.find();
+    // Sort by newest first
+    const polls = await Poll.find().sort({ createdAt: -1 });
+
     if (req.user.role === "coordinator") {
       return res.status(200).json({ polls });
     }
-    const filteredPolls = polls.map((poll) => {
+
+    // For students, check if they voted
+    const pollsWithStatus = await Promise.all(polls.map(async (poll) => {
+      const voterHash = generateVoterHash(req.user._id, poll._id);
+      const hasVoted = await Vote.exists({ voterHash });
+
+      let results = [];
+      if (poll.showResults) {
+        // Aggregate votes for this poll
+        const voteCounts = await Vote.aggregate([
+          { $match: { pollId: poll._id } },
+          { $group: { _id: "$optionIndex", count: { $sum: 1 } } }
+        ]);
+
+        results = poll.options.map((option, index) => {
+          const found = voteCounts.find((r) => r._id === index);
+          return {
+            option: option.text,
+            votes: found ? found.count : 0
+          };
+        });
+      }
+
       return {
         _id: poll._id,
         question: poll.question,
         options: poll.options,
         isActive: poll.isActive,
+        hasVoted: !!hasVoted,
+        showResults: poll.showResults,
+        results
       };
-    });
+    }));
 
-    return res.status(200).json({ polls: filteredPolls });
+    return res.status(200).json({ polls: pollsWithStatus });
 
   } catch (error) {
     console.error(error);
@@ -70,10 +98,10 @@ export const getPollResults = async (req, res) => {
       return res.status(404).json({ message: "Poll not found" });
     }
 
-    // Student cannot see results unless allowed
+    // Student cannot see results unless valid
     if (
       req.user.role === "student" &&
-      (!poll.showResults || poll.isActive)
+      !poll.showResults
     ) {
       return res.status(403).json({
         message: "Results are not available"
@@ -138,30 +166,22 @@ export const closePoll = async (req, res) => {
   }
 };
 
-
 export const toggleResults = async (req, res) => {
   try {
     const { pollId } = req.params;
-
     const poll = await Poll.findById(pollId);
-
-    if (!poll) {
-      return res.status(404).json({ message: "Poll not found" });
-    }
+    if (!poll) return res.status(404).json({ message: "Poll not found" });
 
     poll.showResults = !poll.showResults;
     await poll.save();
 
     return res.status(200).json({
-      message: `Results are now ${
-        poll.showResults ? "VISIBLE" : "HIDDEN"
-      } for students`
+      message: `Results are now ${poll.showResults ? "VISIBLE" : "HIDDEN"} for students`,
+      showResults: poll.showResults
     });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({
-      message: "Failed to toggle results"
-    });
+    return res.status(500).json({ message: "Failed to toggle results" });
   }
 };
 
@@ -186,7 +206,8 @@ export const getSinglePoll = async (req, res) => {
         _id: poll._id,
         question: poll.question,
         options: poll.options,
-        isActive: poll.isActive
+        isActive: poll.isActive,
+        showResults: poll.showResults
       }
     });
   } catch (error) {

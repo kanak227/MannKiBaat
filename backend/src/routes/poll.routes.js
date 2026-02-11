@@ -1,20 +1,22 @@
 import express from "express";
 import roleMiddleware from "../middlewares/role.middleware.js";
 import authMiddleware from "../middlewares/auth.middleware.js";
-import { createPoll , getAllPoll , getPollResults ,closePoll,
+import {
+  createPoll, getAllPoll, getPollResults, closePoll,
   toggleResults,
-  getSinglePoll}  from "../controllers/poll.controller.js";
+  getSinglePoll
+} from "../controllers/poll.controller.js";
 
 const router = express.Router();
 
 router.post(
-	"/create",
-	authMiddleware,
-	roleMiddleware("coordinator"),
-	createPoll
+  "/create",
+  authMiddleware,
+  roleMiddleware("coordinator"),
+  createPoll
 );
 
-router.get("/getAllPolls" , authMiddleware , getAllPoll);
+router.get("/getAllPolls", authMiddleware, getAllPoll);
 
 
 router.get(
