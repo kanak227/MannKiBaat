@@ -18,8 +18,7 @@ export default function Polls() {
       console.log("Fetch skipped: No token")
       return
     }
-    console.log("Fetching polls with token:", token.substring(0, 10) + "...")
-    console.log("Auth Header:", api.defaults.headers.common['Authorization'])
+    console.log("Fetching polls...")
 
     api.get('/poll/getAllPolls').then(res => {
       console.log("Fetch success")

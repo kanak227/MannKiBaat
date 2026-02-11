@@ -1,22 +1,19 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import api, { setAuthToken } from '../api'
+import api from '../api'
 
 const AuthContext = createContext(null)
 
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(() => {
     const t = localStorage.getItem('token')
-    if (t) setAuthToken(t)
     return t
   })
   const [role, setRole] = useState(localStorage.getItem('role'))
 
   useEffect(() => {
     if (token) {
-      setAuthToken(token)
       localStorage.setItem('token', token)
     } else {
-      setAuthToken(null)
       localStorage.removeItem('token')
     }
 
@@ -35,7 +32,6 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     setToken(null)
     setRole(null)
-    setAuthToken(null)
   }
 
   return (
